@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <!-- 支援雙指手勢縮放 (Pinch-to-zoom) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>手鐘 & 律音管 一字一音旋律譜產生器</title>
+  <!-- 引入輕量 html2canvas 函式庫以支援高畫質圖片匯出 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    :root {
+      /* 彩虹手鐘標準色盤 */
+      --bell-1: #c00000;
+      --bell-2: #ff7700;
+      --bell-3: #ffee00;
+      --bell-4: #8bc34a;
+      --bell-5: #00b0f0;
+      --bell-6: #0000e6;
+      --bell-7: #6a2894;
+      --bell-8: #c00000;
+
+      /* 律音管高亮色盤 */
+      --bw-1: #e51c23;
+      --bw-2: #ff7700;
+      --bw-3: #ffee00;
+      --bw-4: #8bc34a;
+      --bw-5: #2e7d32;
+      --bw-6: #1976d2;
+      --bw-7: #6a2894;
+      --bw-8: #e51c23;
+
+      --note-1: var(--bell-1);
+      --note-2: var(--bell-2);
+      --note-3: var(--bell-3);
+      --note-4: var(--bell-4);
+      --note-5: var(--bell-5);
+      --note-6: var(--bell-6);
+      --note-7: var(--bell-7);
+      --note-8: var(--bell-8);
+
+      /* 樂譜縮放係數 */
+      --sheet-scale: 1;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #f0f4f8;
+      margin: 0;
+      padding: 16px;
+      color: #333;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* 頂部標題卡片 */
+    .header-card {
+      background: #ffffff;
+      padding: 18px 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+
+    .title-group h1 {
+      margin: 0 0 4px 0;
+      font-size: 22px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+
+    .title-group p {
+      margin: 0;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button, select {
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      touch-action: manipulation;
+    }
+
+    button:hover:not(:disabled) {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-undo { background: #64748b; color: white; border: none; }
+    .btn-undo:hover:not(:disabled) { background: #475569; }
+    .btn-primary { background: #3b82f6; color: white; border: none; }
+    .btn-primary:hover:not(:disabled) { background: #2563eb; }
+    .btn-dark { background: #1e293b; color: white; border: none; }
+    .btn-dark:hover:not(:disabled) { background: #0f172a; }
+    .btn-img { background: #8b5cf6; color: white; border: none; }
+    .btn-img:hover:not(:disabled) { background: #7c3aed; }
+    .btn-success { background: #10b981; color: white; border: none; }
+    .btn-success:hover:not(:disabled) { background: #059669; }
+
+    /* 設定控制面板 */
+    .control-panel {
+      background: #ffffff;
+      padding: 16px 18px;
+      border-radius: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .pill-group {
+      display: inline-flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .pill-btn {
+      padding: 6px 12px;
+      font-size: 13px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      color: #475569;
+      cursor: pointer;
+    }
+
+    .pill-btn.active {
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      font-weight: bold;
+    }
+
+    /* 縮放控制器組 */
+    .scale-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f8fafc;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: bold;
+      color: #475569;
+    }
+
+    .scale-btn {
+      padding: 3px 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+    }
+
+    .scale-text {
+      min-width: 44px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 色庫展示與筆刷選取欄 */
+    .palette-box {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #f8fafc;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .color-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .color-chip:hover {
+      background: #edf2f7;
+    }
+
+    .color-chip.brush-active {
+      background: #e0f2fe;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+    }
+
+    .color-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 14px;
+      margin-bottom: 3px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .circle-tool {
+      background: #fff;
+      border: 2px dashed #94a3b8;
+      color: #475569;
+      text-shadow: none;
+    }
+
+    /* 樂句編輯區 */
+    .editor-section {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+
+    .header-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .line-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .edit-row {
+      display: grid;
+      grid-template-columns: 32px 1fr 1fr 34px 34px;
+      gap: 8px;
+      align-items: center;
+      background: #f8fafc;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .edit-row.spacer-row {
+      background: #fffdf5;
+      border-color: #fde68a;
+      grid-template-columns: 32px 1fr 34px 34px;
+    }
+
+    .row-index {
+      font-size: 13px;
+      font-weight: bold;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    .input-lyric, .input-notes {
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 15px;
+      background: #ffffff;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .input-notes {
+      font-family: monospace;
+      color: #2563eb;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .btn-icon {
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .btn-icon:hover { color: #dc2626; border-color: #fca5a5; background: #fff5f5; }
+    .btn-add-inline:hover { color: #2563eb; border-color: #93c5fd; background: #eff6ff; }
+
+    /* 下方展示譜區 */
+    .sheet-paper {
+      background: #ffffff;
+      padding: calc(36px * var(--sheet-scale)) calc(30px * var(--sheet-scale));
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: calc(32px * var(--sheet-scale));
+      min-height: 400px;
+      overflow-x: auto;
+    }
+
+    .score-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: calc(16px * var(--sheet-scale)) calc(10px * var(--sheet-scale));
+      align-items: flex-end;
+    }
+
+    .score-spacer {
+      height: calc(24px * var(--sheet-scale));
+      border-bottom: 2px dashed #e2e8f0;
+      margin: calc(10px * var(--sheet-scale)) 0;
+    }
+
+    .note-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: calc(44px * var(--sheet-scale));
+    }
+
+    .lyric-char {
+      font-family: "KaiTi", "BiauKai", "DFKai-SB", "Noto Serif TC", serif;
+      font-size: calc(26px * var(--sheet-scale));
+      font-weight: bold;
+      line-height: 1.2;
+      margin-bottom: calc(8px * var(--sheet-scale));
+      color: #0f172a;
+      min-height: calc(32px * var(--sheet-scale));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+    }
+
+    body.hide-lyrics .lyric-char {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    .bell-ball {
+      width: calc(44px * var(--sheet-scale));
+      height: calc(44px * var(--sheet-scale));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(18px * var(--sheet-scale));
+      font-weight: 800;
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      user-select: none;
+      box-sizing: border-box;
+      transition: transform 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .bell-ball:hover {
+      transform: scale(1.08);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .bell-ball.ball-empty {
+      border: calc(2px * var(--sheet-scale)) dashed #cbd5e1;
+      background: transparent;
+      color: transparent;
+      cursor: pointer;
+    }
+    .bell-ball.ball-empty:hover {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    /* 色彩樣式 */
+    .note-c1 { background-color: var(--note-1) !important; }
+    .note-c2 { background-color: var(--note-2) !important; }
+    .note-c3 { background-color: var(--note-3) !important; color: #1e293b !important; text-shadow: none !important; }
+    .note-c4 { background-color: var(--note-4) !important; }
+    .note-c5 { background-color: var(--note-5) !important; }
+    .note-c6 { background-color: var(--note-6) !important; }
+    .note-c7 { background-color: var(--note-7) !important; }
+    .note-c8 {
+      background-color: var(--note-8) !important;
+      border: calc(5px * var(--sheet-scale)) solid #0f172a !important;
+    }
+    .note-c8.white-style {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      text-shadow: none !important;
+      border: calc(4px * var(--sheet-scale)) solid #0f172a !important;
+    }
+
+    .note-c0 {
+      background: transparent !important;
+      border: calc(2px * var(--sheet-scale)) dashed #94a3b8 !important;
+      color: #94a3b8 !important;
+      text-shadow: none !important;
+    }
+
+    .note-dash {
+      background: transparent !important;
+      border: calc(2px * var(--sheet-scale)) dotted #cbd5e1 !important;
+      color: #94a3b8 !important;
+      text-shadow: none !important;
+    }
+
+    /* 著色線稿模式 */
+    .coloring-mode .bell-ball {
+      background: #ffffff !important;
+      border: calc(2px * var(--sheet-scale)) solid #0f172a !important;
+      color: #0f172a !important;
+      text-shadow: none !important;
+    }
+    .coloring-mode .bell-ball.note-c8 {
+      border: calc(5px * var(--sheet-scale)) solid #000000 !important;
+    }
+
+    /* 全螢幕精巧可拖曳控制列 */
+    #fsFloatingToolbar {
+      display: none;
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 99999;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(6px);
+      padding: 4px 8px;
+      border-radius: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      align-items: center;
+      gap: 5px;
+      user-select: none;
+      touch-action: none;
+    }
+
+    /* 拖曳手把 */
+    .drag-handle {
+      cursor: grab;
+      color: #94a3b8;
+      font-size: 14px;
+      padding: 0 4px;
+      display: flex;
+      align-items: center;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    #fsFloatingToolbar button {
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    #fsFloatingToolbar button:hover {
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    #btnExitFullScreen {
+      background: #ef4444 !important;
+      border: none !important;
+      color: white !important;
+    }
+
+    /* 全螢幕模式樣式 */
+    body.fullscreen {
+      background: #ffffff;
+      padding: 20px;
+    }
+    body.fullscreen #fsFloatingToolbar {
+      display: flex !important;
+    }
+    body.fullscreen .header-card,
+    body.fullscreen .control-panel,
+    body.fullscreen .editor-section {
+      display: none !important;
+    }
+    body.fullscreen .sheet-paper {
+      box-shadow: none;
+      padding: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* 列印樣式 */
+    @media print {
+      @page {
+        margin: 1.2cm;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      body {
+        background: #ffffff !important;
+        padding: 0 !important;
+      }
+      .header-card, .control-panel, .editor-section, #fsFloatingToolbar {
+        display: none !important;
+      }
+      .sheet-paper {
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      .score-line {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 全螢幕可拖曳浮動控制列 -->
+<div id="fsFloatingToolbar">
+  <span class="drag-handle" title="按住拖曳移動位置">⠿</span>
+  <button onclick="zoomOut()">－</button>
+  <span id="fsScaleText" style="color:white; font-size:11px; font-weight:bold; min-width:32px; text-align:center;">100%</span>
+  <button onclick="zoomIn()">＋</button>
+  <button onclick="fitToScreen()">滿版</button>
+  <button id="btnExitFullScreen" onclick="exitFullScreen()">✕ 退出</button>
+</div>
+
+<div class="container">
+  <!-- 頂部標題卡片 -->
+  <div class="header-card">
+    <div class="title-group">
+      <div class="app-icon">🔔</div>
+      <div>
+        <h1>手鐘 & 律音管 一字一音旋律譜產生器</h1>
+        <p>支援彩虹手鐘與 Boomwhackers 色系・一鍵匯出高畫質圖片 (PNG)・彈性縮放滿版</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn-primary" onclick="enterFullScreen()">🖥️ 全螢幕教學投影</button>
+      <button class="btn-dark" onclick="window.print()">🖨️ 列印 / 存為PDF</button>
+      <button class="btn-img" id="btnExportImg" onclick="exportAsImage()">🖼️ 匯出圖片 (PNG)</button>
+    </div>
+  </div>
+
+  <!-- 設定控制面板 -->
+  <div class="control-panel">
+    <div class="control-row">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:13px; font-weight:bold;">樂器色系方案：</span>
+        <div class="pill-group">
+          <button class="pill-btn active" id="btnInstBell" onclick="setInstrument('bell')">🔔 標準彩虹手鐘</button>
+          <button class="pill-btn" id="btnInstBW" onclick="setInstrument('boomwhackers')">🥢 律音管 Boomwhackers</button>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:13px; font-weight:bold;">第8音(高音Do)樣式：</span>
+        <div class="pill-group">
+          <button class="pill-btn active" id="btnHighBorder" onclick="setHighDoStyle('border')">🔴 粗黑框紅</button>
+          <button class="pill-btn" id="btnHighWhite" onclick="setHighDoStyle('white')">⚪ 白色 (White)</button>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:13px; font-weight:bold;">歌詞顯示：</span>
+        <div class="pill-group">
+          <button class="pill-btn active" id="btnLyricShow" onclick="setLyricVisibility(true)">👀 顯示歌詞</button>
+          <button class="pill-btn" id="btnLyricHide" onclick="setLyricVisibility(false)">🙈 隱藏歌詞</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 調色盤與筆刷 -->
+    <div class="palette-box" id="paletteBox"></div>
+
+    <div class="control-row">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:13px; font-weight:bold;">⚡ 載入曲目：</span>
+        <select id="selSongPreset" onchange="loadSelectedSong(this.value)">
+          <option value="">-- 請選擇曲庫歌曲 --</option>
+          <option value="twinkle">小星星</option>
+          <option value="bee">小蜜蜂</option>
+          <option value="london">倫敦鐵橋垮下來</option>
+          <option value="lamb">瑪莉有隻小綿羊</option>
+          <option value="tigers">兩隻老虎</option>
+          <option value="jingle">聖誕鈴聲</option>
+          <option value="butterfly">蝴蝶</option>
+          <option value="greenoil">綠油精</option>
+          <option value="frog">小青蛙</option>
+          <option value="dog">哈巴狗</option>
+          <option value="oldmac">王老先生有塊地</option>
+          <option value="bus">公車的輪子轉呀轉</option>
+          <option value="spring">春神來了</option>
+          <option value="joy">快樂頌</option>
+          <option value="doremi">Do Re Mi之歌</option>
+          <option value="lullaby">搖籃曲</option>
+          <option value="jasmine">茉莉花</option>
+          <option value="skyrain">天公落水</option>
+          <option value="grace">奇異恩典</option>
+          <option value="happyyear">歡樂年華</option>
+        </select>
+      </div>
+
+      <!-- 樂譜尺寸縮放器 -->
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:13px; font-weight:bold;">樂譜縮放：</span>
+        <div class="scale-controls">
+          <button class="scale-btn" onclick="zoomOut()">－</button>
+          <span class="scale-text" id="scaleText">100%</span>
+          <button class="scale-btn" onclick="zoomIn()">＋</button>
+          <button class="scale-btn" onclick="resetZoom()" title="重設為 100%">100%</button>
+        </div>
+      </div>
+
+      <!-- 圓圈樣式切換 -->
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:13px; font-weight:bold;">圓圈樣式：</span>
+        <div class="pill-group">
+          <button class="pill-btn active" id="btnStyleNum" onclick="setBallDisplayMode('number')">簡譜數字(8)</button>
+          <button class="pill-btn" id="btnStyleSolf" onclick="setBallDisplayMode('solfege')">唱名音名</button>
+          <button class="pill-btn" id="btnStylePure" onclick="setBallDisplayMode('pure')">純色圈圈</button>
+        </div>
+        <button id="btnColoring" onclick="toggleColoringMode()">🖍️ 透明黑框著色譜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 樂句編輯區 (還原上一步在新增樂句旁) -->
+  <div class="editor-section">
+    <div class="section-header">
+      <h2>📝 樂句編輯區（歌詞 ＋ 數字）</h2>
+      <div class="header-btns">
+        <button class="btn-success" onclick="appendNewLine()">＋ 新增樂句</button>
+        <button class="btn-undo" id="btnUndo" onclick="undo()" disabled>↶ 還原上一步</button>
+        <button onclick="appendSpacer()">＋ 插入分段空行</button>
+      </div>
+    </div>
+    <div class="line-list" id="lineList"></div>
+  </div>
+
+  <!-- 下方統一樂譜展示區 -->
+  <div class="sheet-paper" id="sheetPaper"></div>
+</div>
+
+<script>
+  // 完整歌曲資料庫
+  const SONG_DATABASE = {
+    twinkle: [
+      { lyric: "一閃一閃亮晶晶", notes: "1155665" },
+      { lyric: "滿天都是小星星", notes: "4433221" },
+      { lyric: "掛在天上放光明", notes: "5544332" },
+      { lyric: "好像許多小眼睛", notes: "5544332" },
+      { lyric: "一閃一閃亮晶晶", notes: "1155665" },
+      { lyric: "滿天都是小星星", notes: "4433221" }
+    ],
+    bee: [
+      { lyric: "嗡嗡嗡 嗡嗡嗡", notes: "533 422" },
+      { lyric: "大家一起勤做工", notes: "1234555" },
+      { lyric: "來匆匆 去匆匆", notes: "533 422" },
+      { lyric: "做工興味濃", notes: "13553" },
+      { lyric: "天暖花好不做工", notes: "2222234" },
+      { lyric: "將來哪裏好過冬", notes: "3333345" },
+      { lyric: "嗡嗡嗡 嗡嗡嗡", notes: "533 422" },
+      { lyric: "別學懶惰蟲", notes: "13551" }
+    ],
+    london: [
+      { lyric: "倫敦鐵橋垮下來", notes: "5654345" },
+      { lyric: "垮下來 垮下來", notes: "234 345" },
+      { lyric: "倫敦鐵橋垮下來", notes: "5654345" },
+      { lyric: "就要 垮下來", notes: "15 321" }
+    ],
+    lamb: [
+      { lyric: "瑪莉有隻小綿羊", notes: "3212333" },
+      { lyric: "小綿羊 小綿羊", notes: "222 355" },
+      { lyric: "瑪莉有隻小綿羊", notes: "3212333" },
+      { lyric: "他生得真可愛", notes: "322321" }
+    ],
+    tigers: [
+      { lyric: "兩隻老虎 兩隻老虎", notes: "1231 1231" },
+      { lyric: "跑得快 跑得快", notes: "345 345" },
+      { lyric: "一隻沒有耳朵", notes: "565431" },
+      { lyric: "一隻沒有尾巴", notes: "565431" },
+      { lyric: "真奇怪 真奇怪", notes: "151 151" }
+    ],
+    jingle: [
+      { lyric: "叮叮噹 叮叮噹 鈴聲多響亮", notes: "333 333 35123" },
+      { lyric: "你看他不避風霜", notes: "4444333" },
+      { lyric: "面容多麼慈祥", notes: "322325" },
+      { lyric: "叮叮噹 叮叮噹 鈴聲多響亮", notes: "333 333 35123" },
+      { lyric: "他給我們帶來幸福", notes: "44444333" },
+      { lyric: "大家喜洋洋", notes: "55421" }
+    ],
+    butterfly: [
+      { lyric: "蝴蝶~蝴蝶生得真美麗", notes: "1123321231" },
+      { lyric: "頭戴著金絲 身穿花花衣", notes: "33455 43453" },
+      { lyric: "你愛~花兒 花也愛你", notes: "87653 8765" },
+      { lyric: "你會~跳舞 牠有甜蜜", notes: "67853" },
+      { lyric: "", notes: "5421" }
+    ],
+    greenoil: [
+      { lyric: "綠油精 綠油精", notes: "535 535" },
+      { lyric: "爸爸愛用綠油精", notes: "6543234" },
+      { lyric: "哥哥姊姊妹妹都愛綠油精", notes: "34511112345" },
+      { lyric: "氣味清香綠油精", notes: "5224321" }
+    ],
+    frog: [
+      { lyric: "小青蛙呀 小青蛙呀", notes: "5533 5533" },
+      { lyric: "在池塘裡遊玩", notes: "565342" },
+      { lyric: "東邊跳跳 西邊跳跳", notes: "4422 4422" },
+      { lyric: "多麼快樂逍遙", notes: "454231" },
+      { lyric: "", notes: "" },
+      { lyric: "咕哇呱呱 咕哇呱呱", notes: "5533 5533" },
+      { lyric: "咕哇咕哇咕哇", notes: "565342" },
+      { lyric: "咕哇呱呱 咕哇呱呱", notes: "4422 4422" },
+      { lyric: "咕哇咕哇咕哇", notes: "454231" }
+    ],
+    dog: [
+      { lyric: "一隻哈巴狗", notes: "11123" },
+      { lyric: "坐在大門口", notes: "33345" },
+      { lyric: "眼睛黑油油", notes: "66543" },
+      { lyric: "想吃肉骨頭", notes: "55231" },
+      { lyric: "", notes: "" },
+      { lyric: "一隻哈巴狗", notes: "11123" },
+      { lyric: "吃完肉骨頭", notes: "33345" },
+      { lyric: "尾巴搖一搖", notes: "66543" },
+      { lyric: "向我點點頭", notes: "55231" }
+    ],
+    oldmac: [
+      { lyric: "王老先生有塊地", notes: "5552332" },
+      { lyric: "咿呀咿呀喲", notes: "77665" },
+      { lyric: "他在田邊養小雞", notes: "5552332" },
+      { lyric: "咿呀咿呀喲", notes: "77665" },
+      { lyric: "這裡唧唧唧", notes: "22555" },
+      { lyric: "那裡唧唧唧", notes: "22555" },
+      { lyric: "這裡唧 那裡唧", notes: "555 555" },
+      { lyric: "到處都在唧唧", notes: "555555" },
+      { lyric: "王老先生有塊地", notes: "5552332" },
+      { lyric: "咿呀咿呀喲", notes: "77665" }
+    ],
+    bus: [
+      { lyric: "公車的輪子轉呀轉", notes: "14446864" },
+      { lyric: "轉呀轉 轉呀轉", notes: "531 864" },
+      { lyric: "公車的輪子轉呀轉", notes: "14446864" },
+      { lyric: "轉 呀 轉", notes: "5 1 4" }
+    ],
+    spring: [
+      { lyric: "春神來了怎知~道", notes: "13586865" },
+      { lyric: "梅花黃鶯報到", notes: "453121" },
+      { lyric: "梅花開頭先含~笑", notes: "55443532" },
+      { lyric: "黃鶯接著唱新~調", notes: "55443532" },
+      { lyric: "歡迎春神試身~手", notes: "13586865" },
+      { lyric: "快把世界改造", notes: "453121" }
+    ],
+    joy: [
+      { lyric: "青天高高白雲飄飄", notes: "33455432" },
+      { lyric: "太陽當空在微笑", notes: "1123322" },
+      { lyric: "枝頭小鳥吱吱在叫", notes: "33455432" },
+      { lyric: "魚兒水面任跳躍", notes: "1123211" },
+      { lyric: "花兒盛開草兒~彎腰", notes: "223123431" },
+      { lyric: "好像~歡迎客人到", notes: "23432125" },
+      { lyric: "我們心中充滿歡喜", notes: "33455432" },
+      { lyric: "人人快樂又逍遙", notes: "1123211" }
+    ],
+    doremi: [
+      { lyric: "Do唱歌兒快樂多", notes: "1 231313" },
+      { lyric: "Re就忘記眼淚", notes: "2 344324" },
+      { lyric: "Mi你真是太甜蜜", notes: "3 453535" },
+      { lyric: "Fa我有個辦法", notes: "4 566546" },
+      { lyric: "So快聽我對你說", notes: "5 123456" },
+      { lyric: "La把煩惱拋開啦", notes: "6 234567" },
+      { lyric: "Si從今後笑嘻嘻", notes: "7 345678" },
+      { lyric: "一起唱歌快樂多", notes: "8764758" }
+    ],
+    lullaby: [
+      { lyric: "寶寶睡 快快睡", notes: "335 335" },
+      { lyric: "窗~外天~已黑", notes: "3587665" },
+      { lyric: "小~鳥~回巢去", notes: "2342234" },
+      { lyric: "太陽也~~休息", notes: "2476578" },
+      { lyric: "到天亮 出太陽", notes: "118 645" },
+      { lyric: "又是鳥語花香", notes: "314565" },
+      { lyric: "到天亮 出太陽", notes: "118 645" },
+      { lyric: "又是鳥語花香", notes: "314321" }
+    ],
+    jasmine: [
+      { lyric: "好一朵美~麗的茉莉~花", notes: "33568865565" },
+      { lyric: "好一朵美~麗的茉莉~花", notes: "33568865565" },
+      { lyric: "芬芳美麗 滿枝枒", notes: "55535665" },
+      { lyric: "又香~又白~人人~誇", notes: "3235321121" }
+    ],
+    skyrain: [
+      { lyric: "天公~哪~落水~啊", notes: "5635356856" },
+      { lyric: "阿妹~呀", notes: "1232" },
+      { lyric: "戴等~草帽~", notes: "556532" },
+      { lyric: "來~~到坑~~水邊", notes: "123523211" }
+    ],
+    grace: [
+      { lyric: "奇異 恩~典 何等 甘甜", notes: "14 646 54 21" },
+      { lyric: "我罪 已得  赦 免", notes: "14 646 568" },
+      { lyric: "前我  失 喪 今被  尋回", notes: "68 6864 12 4421" },
+      { lyric: "瞎眼 今 得 看見", notes: "14 646 54" }
+    ],
+    happyyear: [
+      { lyric: "我們都是好朋友", notes: "3335321" },
+      { lyric: "讓我們來牽著手", notes: "4445432" },
+      { lyric: "美好時光莫錯過", notes: "3335321" },
+      { lyric: "留住歡笑在心頭", notes: "4445432" },
+      { lyric: "歡~樂 年~華 一刻不停留", notes: "345 321 65432" },
+      { lyric: "時~光 匆~匆 唉伊呀伊呀伊呀", notes: "345 321 655443212" },
+      { lyric: "要把~握", notes: "1121" }
+    ]
+  };
+
+  let historyStack = [];
+  let currentInstrument = 'bell';
+  let highDoStyle = 'border';
+  let ballDisplayMode = 'number';
+  let isLyricsVisible = true;
+  let isColoring = false;
+  let currentScale = 1.0;
+
+  let activeBrush = '1';
+
+  let scoreData = JSON.parse(JSON.stringify(SONG_DATABASE.twinkle));
+
+  function pushHistory() {
+    historyStack.push(JSON.stringify(scoreData));
+    if (historyStack.length > 50) historyStack.shift();
+    updateUndoButtonState();
+  }
+
+  function undo() {
+    if (historyStack.length === 0) return;
+    scoreData = JSON.parse(historyStack.pop());
+    renderAll();
+    updateUndoButtonState();
+  }
+
+  function updateUndoButtonState() {
+    const btn = document.getElementById('btnUndo');
+    if (btn) btn.disabled = historyStack.length === 0;
+  }
+
+  function loadSelectedSong(key) {
+    if (!key || !SONG_DATABASE[key]) return;
+    pushHistory();
+    scoreData = JSON.parse(JSON.stringify(SONG_DATABASE[key]));
+    renderAll();
+  }
+
+  function setInstrument(type) {
+    currentInstrument = type;
+    document.getElementById('btnInstBell').classList.toggle('active', type === 'bell');
+    document.getElementById('btnInstBW').classList.toggle('active', type === 'boomwhackers');
+
+    const r = document.documentElement.style;
+    for (let i = 1; i <= 8; i++) {
+      r.setProperty(`--note-${i}`, type === 'boomwhackers' ? `var(--bw-${i})` : `var(--bell-${i})`);
+    }
+    renderPalette();
+    renderAll();
+  }
+
+  function setHighDoStyle(style) {
+    highDoStyle = style;
+    document.getElementById('btnHighBorder').classList.toggle('active', style === 'border');
+    document.getElementById('btnHighWhite').classList.toggle('active', style === 'white');
+    renderPalette();
+    renderAll();
+  }
+
+  function setBallDisplayMode(mode) {
+    ballDisplayMode = mode;
+    document.getElementById('btnStyleNum').classList.toggle('active', mode === 'number');
+    document.getElementById('btnStyleSolf').classList.toggle('active', mode === 'solfege');
+    document.getElementById('btnStylePure').classList.toggle('active', mode === 'pure');
+    renderAll();
+  }
+
+  function setLyricVisibility(visible) {
+    isLyricsVisible = visible;
+    document.getElementById('btnLyricShow').classList.toggle('active', visible);
+    document.getElementById('btnLyricHide').classList.toggle('active', !visible);
+    document.body.classList.toggle('hide-lyrics', !visible);
+  }
+
+  function toggleColoringMode() {
+    isColoring = !isColoring;
+    document.body.classList.toggle('coloring-mode', isColoring);
+    document.getElementById('btnColoring').style.background = isColoring ? '#fee2e2' : '';
+    document.getElementById('btnColoring').style.borderColor = isColoring ? '#ef4444' : '';
+  }
+
+  /* 樂譜尺寸縮放控制系統 */
+  function applyScale(val) {
+    currentScale = Math.min(Math.max(val, 0.6), 2.2);
+    document.documentElement.style.setProperty('--sheet-scale', currentScale);
+    const percentText = Math.round(currentScale * 100) + '%';
+    const sEl = document.getElementById('scaleText');
+    const fsEl = document.getElementById('fsScaleText');
+    if (sEl) sEl.innerText = percentText;
+    if (fsEl) fsEl.innerText = percentText;
+  }
+
+  function zoomIn() {
+    applyScale(currentScale + 0.15);
+  }
+
+  function zoomOut() {
+    applyScale(currentScale - 0.15);
+  }
+
+  function resetZoom() {
+    applyScale(1.0);
+  }
+
+  function fitToScreen() {
+    const paper = document.getElementById('sheetPaper');
+    if (!paper) return;
+    const windowWidth = window.innerWidth - 40;
+    let maxCols = 8;
+    scoreData.forEach(item => {
+      const len = Math.max((item.lyric || '').length, (item.notes || '').length);
+      if (len > maxCols) maxCols = len;
+    });
+    const idealColWidth = windowWidth / maxCols;
+    const targetScale = idealColWidth / 56;
+    applyScale(targetScale);
+  }
+
+  /* 匯出高畫質圖片 (PNG) */
+  function exportAsImage() {
+    const paper = document.getElementById('sheetPaper');
+    const btn = document.getElementById('btnExportImg');
+    if (!paper) return;
+
+    const originalText = btn.innerText;
+    btn.innerText = '⏳ 處理中...';
+    btn.disabled = true;
+
+    html2canvas(paper, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `手鐘樂譜_${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }).catch(err => {
+      alert('圖片匯出失敗，請重試或使用截圖/列印功能。');
+      console.error(err);
+    }).finally(() => {
+      btn.innerText = originalText;
+      btn.disabled = false;
+    });
+  }
+
+  /* 全螢幕模式管理 */
+  function enterFullScreen() {
+    document.body.classList.add('fullscreen');
+    window.history.pushState({ isFullscreen: true }, '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.innerWidth < 800) {
+      fitToScreen();
+    }
+  }
+
+  function exitFullScreen() {
+    if (document.body.classList.contains('fullscreen')) {
+      document.body.classList.remove('fullscreen');
+      if (window.history.state && window.history.state.isFullscreen) {
+        window.history.back();
+      }
+    }
+  }
+
+  window.addEventListener('popstate', (e) => {
+    if (document.body.classList.contains('fullscreen')) {
+      document.body.classList.remove('fullscreen');
+    }
+  });
+
+  /* 全螢幕控制列自由拖曳 (支援滑鼠與觸控手勢) */
+  (function initDraggableToolbar() {
+    const toolbar = document.getElementById('fsFloatingToolbar');
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    function onPointerDown(e) {
+      // 點擊按鈕不觸發拖曳
+      if (e.target.tagName.toLowerCase() === 'button') return;
+
+      isDragging = true;
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+      startX = clientX;
+      startY = clientY;
+
+      const rect = toolbar.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      // 切換為 left/top 絕對定位
+      toolbar.style.right = 'auto';
+      toolbar.style.left = initialLeft + 'px';
+      toolbar.style.top = initialTop + 'px';
+
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+      let newX = initialLeft + (clientX - startX);
+      let newY = initialTop + (clientY - startY);
+
+      // 邊界防護：不超出可視螢幕
+      const maxW = window.innerWidth - toolbar.offsetWidth - 8;
+      const maxH = window.innerHeight - toolbar.offsetHeight - 8;
+
+      newX = Math.max(8, Math.min(newX, maxW));
+      newY = Math.max(8, Math.min(newY, maxH));
+
+      toolbar.style.left = newX + 'px';
+      toolbar.style.top = newY + 'px';
+    }
+
+    function onPointerUp() {
+      isDragging = false;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+    }
+
+    toolbar.addEventListener('pointerdown', onPointerDown);
+  })();
+
+  function setBrush(val) {
+    activeBrush = val;
+    renderPalette();
+  }
+
+  function renderPalette() {
+    const isBW = currentInstrument === 'boomwhackers';
+    const names = isBW 
+      ? ['1·Do', '2·Re', '3·Mi', '4·Fa(淺綠)', '5·Sol(深綠)', '6·La', '7·Ti', '8·Do(高)']
+      : ['1·Do', '2·Re', '3·Mi', '4·Fa', '5·Sol', '6·La', '7·Ti', '8·Do(高)'];
+
+    let html = `<span style="font-size:12px; font-weight:800; color:#64748b;">音色筆刷 (點選直接在下方樂譜著色)：</span>`;
+
+    for (let i = 1; i <= 8; i++) {
+      let extraClass = (i === 8 && highDoStyle === 'white') ? 'white-style' : '';
+      let isSelected = (activeBrush === String(i)) ? 'brush-active' : '';
+      html += `
+        <div class="color-chip ${isSelected}" onclick="setBrush('${i}')" title="點選作為上色筆刷">
+          <div class="color-circle note-c${i} ${extraClass}">${i}</div>
+          <span>${names[i-1]}</span>
+        </div>
+      `;
+    }
+
+    const is0Selected = (activeBrush === '0') ? 'brush-active' : '';
+    html += `
+      <div class="color-chip ${is0Selected}" onclick="setBrush('0')" title="休止符筆刷">
+        <div class="color-circle note-c0" style="border: 2px dashed #94a3b8; color: #64748b; background: transparent; text-shadow:none;">0</div>
+        <span>休止符</span>
+      </div>
+    `;
+
+    const isDashSelected = (activeBrush === '-') ? 'brush-active' : '';
+    html += `
+      <div class="color-chip ${isDashSelected}" onclick="setBrush('-')" title="延長線筆刷">
+        <div class="color-circle note-dash" style="border: 2px dotted #94a3b8; color: #64748b; background: transparent; text-shadow:none;">-</div>
+        <span>延長音</span>
+      </div>
+    `;
+
+    const isEraserSelected = (activeBrush === 'eraser') ? 'brush-active' : '';
+    html += `
+      <div class="color-chip ${isEraserSelected}" onclick="setBrush('eraser')" title="橡皮擦：點擊音符擦除清空">
+        <div class="color-circle circle-tool" style="font-size: 16px;">🧹</div>
+        <span>橡皮擦</span>
+      </div>
+    `;
+
+    document.getElementById('paletteBox').innerHTML = html;
+  }
+
+  function renderAll() {
+    renderEditorList();
+    renderScoreSheet();
+    updateUndoButtonState();
+  }
+
+  function renderEditorList() {
+    const container = document.getElementById('lineList');
+    container.innerHTML = '';
+
+    scoreData.forEach((item, index) => {
+      const isSpacer = (!item.lyric || item.lyric.trim() === '') && (!item.notes || item.notes.trim() === '');
+      const row = document.createElement('div');
+
+      if (isSpacer) {
+        row.className = 'edit-row spacer-row';
+        row.innerHTML = `
+          <div class="row-index">${index + 1}</div>
+          <div style="font-size:13px; font-weight:bold; color:#b45309;">─── 分段空行 ───</div>
+          <button class="btn-icon btn-add-inline" title="在此插入樂句" onclick="insertLine(${index})">＋</button>
+          <button class="btn-icon" title="刪除分段" onclick="deleteLine(${index})">✕</button>
+        `;
+      } else {
+        row.className = 'edit-row';
+        row.innerHTML = `
+          <div class="row-index">${index + 1}</div>
+          <input class="input-lyric" type="text" placeholder="歌詞（空行代表分段）" value="${escapeHtml(item.lyric)}"
+            onfocus="onInputFocus()"
+            oninput="updateLine(${index}, 'lyric', this.value)">
+          <input class="input-notes" id="notes-input-${index}" type="text" placeholder="數字音名 (1~8, 0休止, -延長)" value="${escapeHtml(item.notes)}"
+            onfocus="onInputFocus()"
+            oninput="updateLine(${index}, 'notes', this.value)">
+          <button class="btn-icon btn-add-inline" title="在此下方插入樂句" onclick="insertLine(${index})">＋</button>
+          <button class="btn-icon" title="刪除此句" onclick="deleteLine(${index})">✕</button>
+        `;
+      }
+      container.appendChild(row);
+    });
+  }
+
+  function onInputFocus() {
+    pushHistory();
+  }
+
+  function applyBrushToNote(lineIndex, charIndex) {
+    pushHistory();
+    let line = scoreData[lineIndex];
+    let noteArr = Array.from(line.notes || '');
+
+    while (noteArr.length <= charIndex) {
+      noteArr.push(' ');
+    }
+
+    if (activeBrush === 'eraser') {
+      noteArr[charIndex] = ' ';
+    } else if (activeBrush) {
+      noteArr[charIndex] = activeBrush;
+    }
+
+    line.notes = noteArr.join('').replace(/\s+$/, '');
+    
+    const noteInput = document.getElementById(`notes-input-${lineIndex}`);
+    if (noteInput) {
+      noteInput.value = line.notes;
+    }
+
+    renderScoreSheet();
+  }
+
+  function clearNoteByRightClick(e, lineIndex, charIndex) {
+    e.preventDefault();
+    pushHistory();
+    let line = scoreData[lineIndex];
+    let noteArr = Array.from(line.notes || '');
+    if (charIndex < noteArr.length) {
+      noteArr[charIndex] = ' ';
+      line.notes = noteArr.join('').replace(/\s+$/, '');
+      const noteInput = document.getElementById(`notes-input-${lineIndex}`);
+      if (noteInput) {
+        noteInput.value = line.notes;
+      }
+      renderScoreSheet();
+    }
+  }
+
+  function renderScoreSheet() {
+    const container = document.getElementById('sheetPaper');
+    container.innerHTML = '';
+
+    const solfegeMap = {
+      '1': 'Do', '2': 'Re', '3': 'Mi', '4': 'Fa',
+      '5': 'Sol', '6': 'La', '7': 'Ti', '8': 'Do'
+    };
+
+    scoreData.forEach((item, lineIndex) => {
+      const isSpacer = (!item.lyric || item.lyric.trim() === '') && (!item.notes || item.notes.trim() === '');
+      if (isSpacer) {
+        const spacer = document.createElement('div');
+        spacer.className = 'score-spacer';
+        container.appendChild(spacer);
+        return;
+      }
+
+      const lineRow = document.createElement('div');
+      lineRow.className = 'score-line';
+
+      const lyrics = Array.from(item.lyric || '');
+      const notes = Array.from(item.notes || '');
+      const maxLen = Math.max(lyrics.length, notes.length);
+
+      for (let charIndex = 0; charIndex < maxLen; charIndex++) {
+        const ch = lyrics[charIndex] || '';
+        const nt = notes[charIndex] || '';
+
+        let noteHtml = '';
+        if (nt === '' || nt === ' ') {
+          noteHtml = `<div class="bell-ball ball-empty" 
+            title="點擊填入目前筆刷音符" 
+            onclick="applyBrushToNote(${lineIndex}, ${charIndex})"
+            oncontextmenu="clearNoteByRightClick(event, ${lineIndex}, ${charIndex})"></div>`;
+        } else if (nt >= '1' && nt <= '8') {
+          const whiteClass = (nt === '8' && highDoStyle === 'white') ? 'white-style' : '';
+          let text = '';
+          if (ballDisplayMode === 'number') text = nt;
+          else if (ballDisplayMode === 'solfege') text = solfegeMap[nt];
+          else if (ballDisplayMode === 'pure') text = '';
+
+          noteHtml = `<div class="bell-ball note-c${nt} ${whiteClass}" 
+            title="點擊替換 / 右鍵清空" 
+            onclick="applyBrushToNote(${lineIndex}, ${charIndex})"
+            oncontextmenu="clearNoteByRightClick(event, ${lineIndex}, ${charIndex})">${text}</div>`;
+        } else if (nt === '0') {
+          noteHtml = `<div class="bell-ball note-c0" 
+            title="點擊替換 / 右鍵清空" 
+            onclick="applyBrushToNote(${lineIndex}, ${charIndex})"
+            oncontextmenu="clearNoteByRightClick(event, ${lineIndex}, ${charIndex})">${ballDisplayMode === 'pure' ? '' : '0'}</div>`;
+        } else if (nt === '-' || nt === '~') {
+          noteHtml = `<div class="bell-ball note-dash" 
+            title="點擊替換 / 右鍵清空" 
+            onclick="applyBrushToNote(${lineIndex}, ${charIndex})"
+            oncontextmenu="clearNoteByRightClick(event, ${lineIndex}, ${charIndex})">${ballDisplayMode === 'pure' ? '' : '-'}</div>`;
+        } else {
+          noteHtml = `<div class="bell-ball note-c0" 
+            title="點擊替換 / 右鍵清空" 
+            onclick="applyBrushToNote(${lineIndex}, ${charIndex})"
+            oncontextmenu="clearNoteByRightClick(event, ${lineIndex}, ${charIndex})">${nt}</div>`;
+        }
+
+        const col = document.createElement('div');
+        col.className = 'note-column';
+        col.innerHTML = `
+          <div class="lyric-char">${ch === ' ' ? '&nbsp;' : escapeHtml(ch)}</div>
+          ${noteHtml}
+        `;
+        lineRow.appendChild(col);
+      }
+
+      container.appendChild(lineRow);
+    });
+  }
+
+  function escapeHtml(str) {
+    return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function updateLine(index, field, val) {
+    scoreData[index][field] = val;
+    renderScoreSheet();
+  }
+
+  function appendNewLine() {
+    pushHistory();
+    scoreData.push({ lyric: "新歌詞", notes: "12345" });
+    renderAll();
+  }
+
+  function appendSpacer() {
+    pushHistory();
+    scoreData.push({ lyric: "", notes: "" });
+    renderAll();
+  }
+
+  function insertLine(index) {
+    pushHistory();
+    scoreData.splice(index + 1, 0, { lyric: "新樂句", notes: "1234" });
+    renderAll();
+  }
+
+  function deleteLine(index) {
+    pushHistory();
+    scoreData.splice(index, 1);
+    renderAll();
+  }
+
+  // 鍵盤監聽
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('fullscreen')) {
+      exitFullScreen();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      undo();
+    }
+  });
+
+  // 初始化
+  renderPalette();
+  renderAll();
+</script>
+
+</body>
+</html>
