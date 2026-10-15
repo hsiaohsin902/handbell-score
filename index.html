@@ -2,14 +2,11 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <!-- 支援雙指手勢縮放 (Pinch-to-zoom) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <title>手鐘 & 律音管 一字一音旋律譜產生器</title>
-  <!-- 引入輕量 html2canvas 函式庫以支援高畫質圖片匯出 -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     :root {
-      /* 彩虹手鐘標準色盤 */
       --bell-1: #c00000;
       --bell-2: #ff7700;
       --bell-3: #ffee00;
@@ -19,7 +16,6 @@
       --bell-7: #6a2894;
       --bell-8: #c00000;
 
-      /* 律音管高亮色盤 */
       --bw-1: #e51c23;
       --bw-2: #ff7700;
       --bw-3: #ffee00;
@@ -38,7 +34,6 @@
       --note-7: var(--bell-7);
       --note-8: var(--bell-8);
 
-      /* 樂譜縮放係數 */
       --sheet-scale: 1;
     }
 
@@ -60,10 +55,9 @@
       gap: 16px;
     }
 
-    /* 頂部標題卡片 */
     .header-card {
       background: #ffffff;
-      padding: 18px 20px;
+      padding: 16px 20px;
       border-radius: 16px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.04);
       display: flex;
@@ -85,16 +79,10 @@
     }
 
     .title-group h1 {
-      margin: 0 0 4px 0;
+      margin: 0;
       font-size: 22px;
       font-weight: 800;
       color: #1e293b;
-    }
-
-    .title-group p {
-      margin: 0;
-      font-size: 13px;
-      color: #64748b;
     }
 
     .top-actions {
@@ -139,7 +127,6 @@
     .btn-success { background: #10b981; color: white; border: none; }
     .btn-success:hover:not(:disabled) { background: #059669; }
 
-    /* 設定控制面板 */
     .control-panel {
       background: #ffffff;
       padding: 16px 18px;
@@ -184,7 +171,6 @@
       font-weight: bold;
     }
 
-    /* 縮放控制器組 */
     .scale-controls {
       display: inline-flex;
       align-items: center;
@@ -212,7 +198,6 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* 色庫展示與筆刷選取欄 */
     .palette-box {
       display: flex;
       gap: 8px;
@@ -270,7 +255,6 @@
       text-shadow: none;
     }
 
-    /* 樂句編輯區 */
     .editor-section {
       background: #ffffff;
       padding: 20px;
@@ -363,7 +347,6 @@
     .btn-icon:hover { color: #dc2626; border-color: #fca5a5; background: #fff5f5; }
     .btn-add-inline:hover { color: #2563eb; border-color: #93c5fd; background: #eff6ff; }
 
-    /* 下方展示譜區 */
     .sheet-paper {
       background: #ffffff;
       padding: calc(36px * var(--sheet-scale)) calc(30px * var(--sheet-scale));
@@ -450,7 +433,6 @@
       background: #eff6ff;
     }
 
-    /* 色彩樣式 */
     .note-c1 { background-color: var(--note-1) !important; }
     .note-c2 { background-color: var(--note-2) !important; }
     .note-c3 { background-color: var(--note-3) !important; color: #1e293b !important; text-shadow: none !important; }
@@ -483,7 +465,6 @@
       text-shadow: none !important;
     }
 
-    /* 著色線稿模式 */
     .coloring-mode .bell-ball {
       background: #ffffff !important;
       border: calc(2px * var(--sheet-scale)) solid #0f172a !important;
@@ -494,7 +475,6 @@
       border: calc(5px * var(--sheet-scale)) solid #000000 !important;
     }
 
-    /* 全螢幕精巧可拖曳控制列 */
     #fsFloatingToolbar {
       display: none;
       position: fixed;
@@ -512,7 +492,6 @@
       touch-action: none;
     }
 
-    /* 拖曳手把 */
     .drag-handle {
       cursor: grab;
       color: #94a3b8;
@@ -545,7 +524,6 @@
       color: white !important;
     }
 
-    /* 全螢幕模式樣式 */
     body.fullscreen {
       background: #ffffff;
       padding: 20px;
@@ -565,7 +543,6 @@
       box-sizing: border-box;
     }
 
-    /* 列印樣式 */
     @media print {
       @page {
         margin: 1.2cm;
@@ -594,7 +571,6 @@
 </head>
 <body>
 
-<!-- 全螢幕可拖曳浮動控制列 -->
 <div id="fsFloatingToolbar">
   <span class="drag-handle" title="按住拖曳移動位置">⠿</span>
   <button onclick="zoomOut()">－</button>
@@ -605,14 +581,10 @@
 </div>
 
 <div class="container">
-  <!-- 頂部標題卡片 -->
   <div class="header-card">
     <div class="title-group">
       <div class="app-icon">🔔</div>
-      <div>
-        <h1>手鐘 & 律音管 一字一音旋律譜產生器</h1>
-        <p>支援彩虹手鐘與 Boomwhackers 色系・一鍵匯出高畫質圖片 (PNG)・彈性縮放滿版</p>
-      </div>
+      <h1>手鐘 & 律音管 一字一音旋律譜產生器</h1>
     </div>
     <div class="top-actions">
       <button class="btn-primary" onclick="enterFullScreen()">🖥️ 全螢幕教學投影</button>
@@ -621,7 +593,6 @@
     </div>
   </div>
 
-  <!-- 設定控制面板 -->
   <div class="control-panel">
     <div class="control-row">
       <div style="display:flex; align-items:center; gap:8px;">
@@ -649,7 +620,6 @@
       </div>
     </div>
 
-    <!-- 調色盤與筆刷 -->
     <div class="palette-box" id="paletteBox"></div>
 
     <div class="control-row">
@@ -680,7 +650,6 @@
         </select>
       </div>
 
-      <!-- 樂譜尺寸縮放器 -->
       <div style="display:flex; align-items:center; gap:6px;">
         <span style="font-size:13px; font-weight:bold;">樂譜縮放：</span>
         <div class="scale-controls">
@@ -691,7 +660,6 @@
         </div>
       </div>
 
-      <!-- 圓圈樣式切換 -->
       <div style="display:flex; align-items:center; gap:8px;">
         <span style="font-size:13px; font-weight:bold;">圓圈樣式：</span>
         <div class="pill-group">
@@ -704,7 +672,6 @@
     </div>
   </div>
 
-  <!-- 樂句編輯區 (還原上一步在新增樂句旁) -->
   <div class="editor-section">
     <div class="section-header">
       <h2>📝 樂句編輯區（歌詞 ＋ 數字）</h2>
@@ -717,12 +684,10 @@
     <div class="line-list" id="lineList"></div>
   </div>
 
-  <!-- 下方統一樂譜展示區 -->
   <div class="sheet-paper" id="sheetPaper"></div>
 </div>
 
 <script>
-  // 完整歌曲資料庫
   const SONG_DATABASE = {
     twinkle: [
       { lyric: "一閃一閃亮晶晶", notes: "1155665" },
@@ -969,7 +934,6 @@
     document.getElementById('btnColoring').style.borderColor = isColoring ? '#ef4444' : '';
   }
 
-  /* 樂譜尺寸縮放控制系統 */
   function applyScale(val) {
     currentScale = Math.min(Math.max(val, 0.6), 2.2);
     document.documentElement.style.setProperty('--sheet-scale', currentScale);
@@ -1006,7 +970,6 @@
     applyScale(targetScale);
   }
 
-  /* 匯出高畫質圖片 (PNG) */
   function exportAsImage() {
     const paper = document.getElementById('sheetPaper');
     const btn = document.getElementById('btnExportImg');
@@ -1035,7 +998,6 @@
     });
   }
 
-  /* 全螢幕模式管理 */
   function enterFullScreen() {
     document.body.classList.add('fullscreen');
     window.history.pushState({ isFullscreen: true }, '');
@@ -1060,7 +1022,6 @@
     }
   });
 
-  /* 全螢幕控制列自由拖曳 (支援滑鼠與觸控手勢) */
   (function initDraggableToolbar() {
     const toolbar = document.getElementById('fsFloatingToolbar');
     let isDragging = false;
@@ -1068,7 +1029,6 @@
     let initialLeft = 0, initialTop = 0;
 
     function onPointerDown(e) {
-      // 點擊按鈕不觸發拖曳
       if (e.target.tagName.toLowerCase() === 'button') return;
 
       isDragging = true;
@@ -1082,7 +1042,6 @@
       initialLeft = rect.left;
       initialTop = rect.top;
 
-      // 切換為 left/top 絕對定位
       toolbar.style.right = 'auto';
       toolbar.style.left = initialLeft + 'px';
       toolbar.style.top = initialTop + 'px';
@@ -1099,7 +1058,6 @@
       let newX = initialLeft + (clientX - startX);
       let newY = initialTop + (clientY - startY);
 
-      // 邊界防護：不超出可視螢幕
       const maxW = window.innerWidth - toolbar.offsetWidth - 8;
       const maxH = window.innerHeight - toolbar.offsetHeight - 8;
 
@@ -1364,7 +1322,6 @@
     renderAll();
   }
 
-  // 鍵盤監聽
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && document.body.classList.contains('fullscreen')) {
       exitFullScreen();
@@ -1375,7 +1332,6 @@
     }
   });
 
-  // 初始化
   renderPalette();
   renderAll();
 </script>
